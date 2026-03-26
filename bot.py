@@ -139,7 +139,7 @@ async def error_handler(update, context):
 
 # ====== MAIN ======
 if __name__ == "__main__":
-    app = ApplicationBuilder().token(8651214459:AAEGFEpZjXz6GBAn9lijvN1esIpywkFFfu4).build()
+    app = ApplicationBuilder().token("8651214459:AAEGFEpZjXz6GBAn9lijvN1esIpywkFFfu4").build()
 
     # Handler
     app.add_handler(CommandHandler("start", start))
