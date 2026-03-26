@@ -1,19 +1,7 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import (
-    ApplicationBuilder, CommandHandler, MessageHandler,
-    ContextTypes, filters, CallbackQueryHandler
-)
-from datetime import time
-import pytz
-import os
+from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters
 
-# ====== TOKEN ======
-TOKEN = os.getenv("BOT_TOKEN")  # pakai env (AMAN)
-
-# ====== TIMEZONE GMT+8 ======
-timezone = pytz.timezone("Asia/Makassar")
-
-# ====== DATA USER ======
+# ====== DAFTAR USER ======
 USERS = {
     "220051100518": "NI MADE MEGA SISWANTI",
     "220240605152": "MUHAMMAD RAVI MAHENDRA",
@@ -49,10 +37,10 @@ USERS = {
     "220230204616": "YAYANG DWI SETIYA MINARTI"
 }
 
-# ====== LOGIN SESSION ======
-logged_in_users = set()
+# ====== LOGIN USER (SIMPAN NAMA) ======
+logged_in_users = {}
 
-# ====== TOMBOL ======
+# ====== TOMBOL MENU ======
 def generate_buttons():
     keyboard = [
         [InlineKeyboardButton("SiKEPI", url="https://sikepi.bankaltimtara.co.id/"),
@@ -68,106 +56,60 @@ def generate_buttons():
 
 # ====== START ======
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Hallo! Silakan masukkan Nomor User kamu:")
+    chat_id = update.effective_chat.id
 
-# ====== LOGIN ======
+    if chat_id in logged_in_users:
+        nama = logged_in_users[chat_id]
+        await update.message.reply_text(
+            f"Halo {nama}, kamu sudah login. Silakan pilih menu:",
+            reply_markup=generate_buttons()
+        )
+    else:
+        await update.message.reply_text(
+            "Hallo, silakan masukkan Nomor User kamu:"
+        )
+
+# ====== VERIFIKASI USER ======
 async def verify_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
     nomor = update.message.text.strip()
     chat_id = update.effective_chat.id
 
     if nomor in USERS:
-        logged_in_users.add(chat_id)
+        nama = USERS[nomor]
+        logged_in_users[chat_id] = nama
+
         await update.message.reply_text(
-            f"Selamat datang, {USERS[nomor]}!",
+            f"Selamat datang, {nama}! Kamu sekarang bisa menggunakan menu di bawah.",
             reply_markup=generate_buttons()
         )
     else:
-        await update.message.reply_text("Nomor tidak valid, coba lagi:")
+        await update.message.reply_text(
+            "Nomor tidak valid. Silakan masukkan nomor user lagi:"
+        )
 
-# ====== COMMAND TOMBOL ======
-async def tombol(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_chat.id in logged_in_users:
-        await update.message.reply_text("Menu:", reply_markup=generate_buttons())
-    else:
-        await update.message.reply_text("Silakan login dulu.")
-
-# ====== LOGOUT ======
-async def logout(update: Update, context: ContextTypes.DEFAULT_TYPE):
+# ====== COMMAND INFO ======
+async def info(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
-    logged_in_users.discard(chat_id)
-    await update.message.reply_text("Kamu sudah logout.")
 
-# ====== REMINDER PAGI ======
-async def morning_reminder(context: ContextTypes.DEFAULT_TYPE):
-    for chat_id in logged_in_users:
-        await context.bot.send_message(chat_id, "Apakah anda sudah absen pagi ini?")
+    if chat_id in logged_in_users:
+        nama = logged_in_users[chat_id]
 
-# ====== REMINDER BULANAN ======
-async def end_month_reminder(context: ContextTypes.DEFAULT_TYPE):
-    for chat_id in logged_in_users:
-        await context.bot.send_message(
-            chat_id,
-            "Sudah akhir bulan nih, apakah anda memiliki berkas lemburan yang belum di selesaikan?"
+        await update.message.reply_text(
+            f"Halo {nama}, silakan pilih menu:",
+            reply_markup=generate_buttons()
         )
-
-# ====== REMINDER SORE + RATING ======
-async def evening_check(context: ContextTypes.DEFAULT_TYPE):
-    keyboard = [[
-        InlineKeyboardButton("⭐1", callback_data="rate_1"),
-        InlineKeyboardButton("⭐2", callback_data="rate_2"),
-        InlineKeyboardButton("⭐3", callback_data="rate_3"),
-        InlineKeyboardButton("⭐4", callback_data="rate_4"),
-        InlineKeyboardButton("⭐5", callback_data="rate_5"),
-    ]]
-    for chat_id in logged_in_users:
-        await context.bot.send_message(
-            chat_id,
-            "Berapa level bahagiamu hari ini?",
-            reply_markup=InlineKeyboardMarkup(keyboard)
+    else:
+        await update.message.reply_text(
+            "Silakan login dulu dengan memasukkan Nomor User."
         )
-
-# ====== HANDLE RATING ======
-async def handle_rating(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    rating = query.data.split("_")[1]
-    await query.edit_message_text(f"Terima kasih! Kamu memilih ⭐{rating}")
-
-# ====== ERROR HANDLER ======
-async def error_handler(update, context):
-    print("Error:", context.error)
 
 # ====== MAIN ======
 if __name__ == "__main__":
-    app = ApplicationBuilder().token("8651214459:AAEGFEpZjXz6GBAn9lijvN1esIpywkFFfu4").build()
+    app = ApplicationBuilder().token("8651214459:AAE4kaN2hWPZxkR0whp03WVBY2oALssRX80").build()
 
-    # Handler
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("tombol", tombol))
-    app.add_handler(CommandHandler("logout", logout))
+    app.add_handler(CommandHandler("info", info))
     app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), verify_user))
-    app.add_handler(CallbackQueryHandler(handle_rating))
-
-    app.add_error_handler(error_handler)
-
-    # ====== SCHEDULER ======
-    app.job_queue.run_daily(
-        morning_reminder,
-        time=time(7, 0, tzinfo=timezone),
-        days=(0,1,2,3,4)
-    )
-
-    app.job_queue.run_monthly(
-        end_month_reminder,
-        when=time(7, 0, tzinfo=timezone),
-        day=28
-    )
-
-    app.job_queue.run_daily(
-        evening_check,
-        time=time(17, 0, tzinfo=timezone),
-        days=(0,1,2,3,4)
-    )
 
     print("Bot berjalan...")
     app.run_polling()
